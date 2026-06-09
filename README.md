@@ -25,6 +25,17 @@ An elegant, robust, and local-polling custom integration for Home Assistant that
 
 ## Installation
 
+### Installation via HACS (Recommended)
+
+1. Make sure **HACS** is installed and configured in your Home Assistant instance.
+2. Navigate to **HACS** in the Home Assistant sidebar.
+3. Click the **three dots (⋮)** in the top-right corner of the HACS panel and select **Custom repositories**.
+4. In the **Repository** field, paste the URL of this repository: `https://github.com/bwcon/homeassistant-crestron-home`
+5. In the **Category** dropdown, select **Integration**.
+6. Click **Add**.
+7. Find the newly added **Crestron Home Integration for Home Assistant** in HACS, click on it, and click **Download** in the bottom right.
+8. **Restart** Home Assistant to load the custom component.
+
 ### Manual Installation
 
 1.  Download the repository.
