@@ -1,7 +1,7 @@
 {
   "domain": "crestron_home",
   "name": "Crestron Home",
-  "codeowners": [BWcon],
+  "codeowners": "BWcon",
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/npope/home-assistant-crestron-component",
