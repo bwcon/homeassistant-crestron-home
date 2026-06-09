@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Crestron Home Processor",
+        "description": "Provide the connection details and Web API token for your Crestron Home Processor.",
+        "data": {
+          "host": "IP Address or Hostname",
+          "protocol": "Connection Protocol",
+          "port": "API Port",
+          "token": "Web API Token",
+          "ssl_verify": "Verify SSL Certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Crestron Home processor. Verify the IP address, port, and network status.",
+      "invalid_auth": "Authentication failed. Verify the Web API token.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Crestron Home processor is already configured."
+    }
+  }
+}
