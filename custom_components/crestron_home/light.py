@@ -55,8 +55,12 @@ class CrestronHomeLight(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Li
         if room_name:
             self._attr_suggested_area = room_name
 
-        self._is_dimmer = device_data.get("subType") == "Dimmer"
-        
+        # Detect dimmer vs switch.  The subType field may be PascalCase,
+        # lowercase, or missing entirely.  If the device reports a "level"
+        # key it is implicitly dimmable (common on /lights endpoint).
+        sub = (device_data.get("subType") or "").lower()
+        self._is_dimmer = sub == "dimmer" or "level" in device_data
+
         if self._is_dimmer:
             self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
             self._attr_color_mode = ColorMode.BRIGHTNESS
