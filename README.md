@@ -116,17 +116,18 @@ Keypad Press → Crestron A&E → Event Channel → HTTP Server → HA Coordinat
 
 ### Automation Blueprint
 
-An automation blueprint is included at:
+[![Import Crestron Keypad Controller Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fbwcon%2Fhomeassistant-crestron-home%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcrestron_home%2Fcrestron_keypad_controller.yaml)
+
+Click the button above to import the blueprint directly into your Home Assistant instance, or manually copy the file from:
 ```
 blueprints/automation/crestron_home/crestron_keypad_controller.yaml
 ```
 
-To use it:
-1. In HA, go to **Settings > Automations & Scenes > Blueprints**
-2. Import from the repository URL or copy the file to your `blueprints/automation/` folder
-3. Create a new automation from the **Crestron Home Keypad Controller** blueprint
-4. Select the **Event Channel Number** (1-32)
-5. Configure actions for **Tap**, **Double Tap**, **Hold**, and **Release**
+**Setup:**
+1. Click **Import Blueprint** above (or go to **Settings > Automations & Scenes > Blueprints** and import via URL)
+2. Create a new automation from the **Crestron Home Keypad Controller** blueprint
+3. Select the **Event Channel Number** (1-32)
+4. Configure actions for **Tap**, **Double Tap**, **Hold**, and **Release**
 
 ---
 
