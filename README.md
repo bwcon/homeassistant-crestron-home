@@ -91,7 +91,7 @@ This feature requires the **Crestron Home Keypad Event Bridge** driver installed
 2. Allows the installer to map keypad button presses to Event Channel actions in **Actions & Events**
 3. Serves button press events over a lightweight HTTP REST API
 
-The Keypad Event Bridge driver is available separately from [BW Consulting](https://bwconsulting.com/).
+The Keypad Event Bridge driver is an upcoming companion package — stay tuned for its release.
 
 ### How It Works
 
