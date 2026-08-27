@@ -9,7 +9,13 @@
           "protocol": "Connection Protocol",
           "port": "API Port",
           "token": "Web API Token",
-          "ssl_verify": "Verify SSL Certificate"
+          "ssl_verify": "Verify SSL Certificate",
+          "keypad_bridge_host": "Keypad Bridge IP (optional)",
+          "keypad_bridge_port": "Keypad Bridge Port"
+        },
+        "data_description": {
+          "keypad_bridge_host": "IP address of the Crestron processor running the Keypad Event Bridge driver. Leave blank to disable keypad event monitoring.",
+          "keypad_bridge_port": "HTTP port configured in the Keypad Event Bridge driver (default: 9008)."
         }
       }
     },

@@ -1,22 +1,36 @@
 """DataUpdateCoordinator for Crestron Home."""
 import asyncio
-from datetime import timedelta
-from typing import Any, Dict, List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+
+import aiohttp
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
+from .const import (
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    EVENT_CRESTRON_KEYPAD,
+    LOGGER,
+)
 from .api import CrestronHomeAPI, CrestronHomeAPIError
 
 
 class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     """Class to manage fetching Crestron Home data from processor."""
 
-    def __init__(self, hass: HomeAssistant, api: CrestronHomeAPI) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: CrestronHomeAPI,
+        keypad_bridge_url: Optional[str] = None,
+    ) -> None:
         """Initialize the coordinator."""
         self.api = api
         self.rooms: Dict[int, str] = {}
+        self._keypad_bridge_url = keypad_bridge_url
+        self._last_keypad_poll: Optional[datetime] = None
 
         super().__init__(
             hass,
@@ -79,6 +93,68 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             devices[item_id].setdefault("type", device_type)
 
     # ------------------------------------------------------------------
+    # Keypad bridge polling
+    # ------------------------------------------------------------------
+
+    async def _poll_keypad_bridge(self) -> List[Dict[str, Any]]:
+        """Poll the Keypad Event Bridge HTTP server for new events.
+
+        Returns a list of new keypad event dicts since the last poll.
+        Events are fired as HA events immediately.
+        """
+        if not self._keypad_bridge_url:
+            return []
+
+        try:
+            now = datetime.now(timezone.utc)
+            if self._last_keypad_poll is not None:
+                since = self._last_keypad_poll.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                url = f"{self._keypad_bridge_url}/recent?since={since}"
+            else:
+                # First poll — just get the last few to avoid replaying history
+                url = f"{self._keypad_bridge_url}/recent?count=0"
+
+            session = self.hass.helpers.aiohttp_client.async_get_clientsession(
+                self.hass, verify_ssl=False
+            )
+
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status != 200:
+                    LOGGER.debug(
+                        "Keypad bridge returned HTTP %s", resp.status
+                    )
+                    return []
+                data = await resp.json()
+
+            events = data.get("events", [])
+            self._last_keypad_poll = now
+
+            # Fire each new event as a Home Assistant event
+            for event in events:
+                event_data = {
+                    "channel": event.get("channel"),
+                    "channel_name": event.get("channelName", ""),
+                    "action": event.get("action", ""),
+                    "timestamp": event.get("timestamp", ""),
+                }
+                self.hass.bus.async_fire(EVENT_CRESTRON_KEYPAD, event_data)
+                LOGGER.debug(
+                    "Fired %s: channel=%s action=%s",
+                    EVENT_CRESTRON_KEYPAD,
+                    event_data["channel"],
+                    event_data["action"],
+                )
+
+            return events
+
+        except asyncio.TimeoutError:
+            LOGGER.debug("Keypad bridge poll timed out")
+            return []
+        except Exception as err:  # noqa: BLE001
+            LOGGER.debug("Keypad bridge poll error: %s", err)
+            return []
+
+    # ------------------------------------------------------------------
     # Main polling loop
     # ------------------------------------------------------------------
 
@@ -127,17 +203,22 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             scenes_dict = {s["id"]: s for s in scenes_list if "id" in s}
             doorlocks_dict = {lk["id"]: lk for lk in doorlocks_list if "id" in lk}
 
+            # Poll keypad bridge (fires events as side-effect)
+            keypad_events = await self._poll_keypad_bridge()
+
             LOGGER.debug(
-                "Poll complete — %d devices, %d scenes, %d locks",
+                "Poll complete — %d devices, %d scenes, %d locks, %d keypad events",
                 len(devices_dict),
                 len(scenes_dict),
                 len(doorlocks_dict),
+                len(keypad_events),
             )
 
             return {
                 "devices": devices_dict,
                 "scenes": scenes_dict,
                 "doorlocks": doorlocks_dict,
+                "keypad_events": keypad_events,
             }
 
         except CrestronHomeAPIError as err:

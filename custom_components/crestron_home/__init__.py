@@ -6,7 +6,15 @@ from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TOKEN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_PROTOCOL, CONF_SSL_VERIFY, DOMAIN, PLATFORMS
+from .const import (
+    CONF_KEYPAD_BRIDGE_HOST,
+    CONF_KEYPAD_BRIDGE_PORT,
+    CONF_PROTOCOL,
+    CONF_SSL_VERIFY,
+    DEFAULT_KEYPAD_BRIDGE_PORT,
+    DOMAIN,
+    PLATFORMS,
+)
 from .api import CrestronHomeAPI
 from .coordinator import CrestronHomeDataUpdateCoordinator
 
@@ -31,7 +39,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         session=session,
     )
 
-    coordinator = CrestronHomeDataUpdateCoordinator(hass, api)
+    # Build keypad bridge URL if configured
+    keypad_bridge_url = None
+    bridge_host = entry.data.get(CONF_KEYPAD_BRIDGE_HOST, "").strip()
+    bridge_port = entry.data.get(CONF_KEYPAD_BRIDGE_PORT, DEFAULT_KEYPAD_BRIDGE_PORT)
+    if bridge_host:
+        keypad_bridge_url = f"http://{bridge_host}:{bridge_port}/cws/api/ha-keypad-events"
+
+    coordinator = CrestronHomeDataUpdateCoordinator(
+        hass, api, keypad_bridge_url=keypad_bridge_url
+    )
 
     # Perform first update to populate coordinator data and room list
     await coordinator.async_config_entry_first_refresh()

@@ -7,7 +7,16 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_TOKEN
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
 
-from .const import CONF_PROTOCOL, CONF_SSL_VERIFY, DEFAULT_PORT, DEFAULT_PROTOCOL, DOMAIN
+from .const import (
+    CONF_KEYPAD_BRIDGE_HOST,
+    CONF_KEYPAD_BRIDGE_PORT,
+    CONF_PROTOCOL,
+    CONF_SSL_VERIFY,
+    DEFAULT_KEYPAD_BRIDGE_PORT,
+    DEFAULT_PORT,
+    DEFAULT_PROTOCOL,
+    DOMAIN,
+)
 from .api import CrestronHomeAPI, CrestronHomeAuthError, CrestronHomeConnectionError
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -17,6 +26,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_PORT, default=DEFAULT_PORT): cv.port,
         vol.Required(CONF_TOKEN): cv.string,
         vol.Required(CONF_SSL_VERIFY, default=False): cv.boolean,
+        vol.Optional(CONF_KEYPAD_BRIDGE_HOST, default=""): cv.string,
+        vol.Optional(CONF_KEYPAD_BRIDGE_PORT, default=DEFAULT_KEYPAD_BRIDGE_PORT): cv.port,
     }
 )
 

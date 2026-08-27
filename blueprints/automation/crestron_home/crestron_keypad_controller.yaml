@@ -1,0 +1,90 @@
+blueprint:
+  name: Crestron Home Keypad Controller
+  description: >-
+    Map Crestron Home keypad button presses to Home Assistant actions.
+    Requires the Crestron Home Keypad Event Bridge driver installed on the
+    processor and the keypad bridge configured in the Crestron Home integration.
+
+    Configure Actions & Events in Crestron Home Setup to map physical keypad
+    buttons to Event Channels, then use this blueprint to trigger HA automations
+    when those buttons are pressed.
+  domain: automation
+  author: BW Consulting
+  source_url: https://github.com/bwcon/homeassistant-crestron-home/blob/main/blueprints/automation/crestron_home/crestron_keypad_controller.yaml
+
+  input:
+    channel:
+      name: Event Channel Number
+      description: >-
+        The event channel number (1-32) that the keypad button is mapped to in
+        Crestron Home Actions & Events.
+      selector:
+        number:
+          min: 1
+          max: 32
+          mode: box
+
+    action_tap:
+      name: Tap Action (optional)
+      description: Action to run when the button is tapped (single press).
+      default: []
+      selector:
+        action: {}
+
+    action_double_tap:
+      name: Double Tap Action (optional)
+      description: Action to run when the button is double-tapped.
+      default: []
+      selector:
+        action: {}
+
+    action_hold:
+      name: Hold Action (optional)
+      description: Action to run when the button is held down.
+      default: []
+      selector:
+        action: {}
+
+    action_release:
+      name: Release Action (optional)
+      description: Action to run when the button is released after a hold.
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max_exceeded: silent
+max: 10
+
+trigger:
+  - platform: event
+    event_type: crestron_keypad_event
+    event_data:
+      channel: !input channel
+
+action:
+  - variables:
+      action: "{{ trigger.event.data.action | lower }}"
+      channel: "{{ trigger.event.data.channel }}"
+      channel_name: "{{ trigger.event.data.channel_name }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ action == 'tap' }}"
+        sequence: !input action_tap
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action == 'doubletap' }}"
+        sequence: !input action_double_tap
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action == 'hold' }}"
+        sequence: !input action_hold
+
+      - conditions:
+          - condition: template
+            value_template: "{{ action == 'release' }}"
+        sequence: !input action_release
