@@ -27,5 +27,31 @@
     "abort": {
       "already_configured": "This Crestron Home processor is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Crestron Home Polling Options",
+        "description": "Adjust the polling interval and select which device types to poll. Disabling unused endpoints reduces processor load.",
+        "data": {
+          "scan_interval": "Poll Interval (seconds)",
+          "poll_lights": "Poll Lights",
+          "poll_shades": "Poll Shades",
+          "poll_thermostats": "Poll Thermostats",
+          "poll_sensors": "Poll Sensors",
+          "poll_scenes": "Poll Scenes",
+          "poll_doorlocks": "Poll Door Locks"
+        },
+        "data_description": {
+          "scan_interval": "How often to query the processor (10–300 seconds). Lower values give faster feedback but increase processor load. Default: 30 seconds.",
+          "poll_lights": "Enable polling of /cws/api/lights for dimmer and switch loads.",
+          "poll_shades": "Enable polling of /cws/api/shades for window coverings.",
+          "poll_thermostats": "Enable polling of /cws/api/thermostats for HVAC/climate devices.",
+          "poll_sensors": "Enable polling of /cws/api/sensors for occupancy, contact, and environmental sensors.",
+          "poll_scenes": "Enable polling of /cws/api/scenes for lighting/shade scenes.",
+          "poll_doorlocks": "Enable polling of /cws/api/doorlocks for lock devices."
+        }
+      }
+    }
   }
 }

@@ -18,6 +18,7 @@ from .const import (
 from .api import CrestronHomeAPI
 from .coordinator import CrestronHomeDataUpdateCoordinator
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Crestron Home from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -47,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         keypad_bridge_url = f"http://{bridge_host}:{bridge_port}/cws/api/ha-keypad-events"
 
     coordinator = CrestronHomeDataUpdateCoordinator(
-        hass, api, keypad_bridge_url=keypad_bridge_url
+        hass, api, entry=entry, keypad_bridge_url=keypad_bridge_url
     )
 
     # Perform first update to populate coordinator data and room list
@@ -56,10 +57,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store coordinator instance
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
+    # Listen for options updates (poll interval, endpoint toggles)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
     # Forward setup to all platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+async def _async_options_updated(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Handle options update — apply new poll interval immediately."""
+    coordinator: CrestronHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator.update_interval_from_options()
+    # Force an immediate refresh with new settings
+    await coordinator.async_request_refresh()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

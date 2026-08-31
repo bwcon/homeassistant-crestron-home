@@ -1,14 +1,22 @@
 """DataUpdateCoordinator for Crestron Home."""
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_POLL_DOORLOCKS,
+    CONF_POLL_LIGHTS,
+    CONF_POLL_SCENES,
+    CONF_POLL_SENSORS,
+    CONF_POLL_SHADES,
+    CONF_POLL_THERMOSTATS,
+    CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     EVENT_CRESTRON_KEYPAD,
@@ -24,20 +32,54 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         self,
         hass: HomeAssistant,
         api: CrestronHomeAPI,
+        entry: ConfigEntry,
         keypad_bridge_url: Optional[str] = None,
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
         self.rooms: Dict[int, str] = {}
+        self.entry = entry
         self._keypad_bridge_url = keypad_bridge_url
         self._last_keypad_poll: Optional[datetime] = None
+
+        scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
         super().__init__(
             hass,
             LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            update_interval=timedelta(seconds=scan_interval),
         )
+
+    # ------------------------------------------------------------------
+    # Options helpers
+    # ------------------------------------------------------------------
+
+    def _get_enabled_endpoints(self) -> Set[str]:
+        """Return set of enabled endpoint names based on current options."""
+        opts = self.entry.options
+        enabled = set()
+        if opts.get(CONF_POLL_LIGHTS, True):
+            enabled.add("lights")
+        if opts.get(CONF_POLL_SHADES, True):
+            enabled.add("shades")
+        if opts.get(CONF_POLL_THERMOSTATS, True):
+            enabled.add("thermostats")
+        if opts.get(CONF_POLL_SENSORS, True):
+            enabled.add("sensors")
+        if opts.get(CONF_POLL_SCENES, True):
+            enabled.add("scenes")
+        if opts.get(CONF_POLL_DOORLOCKS, True):
+            enabled.add("doorlocks")
+        return enabled
+
+    def update_interval_from_options(self) -> None:
+        """Re-read the scan interval from options (called on options update)."""
+        scan_interval = self.entry.options.get(
+            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+        )
+        self.update_interval = timedelta(seconds=scan_interval)
+        LOGGER.info("Poll interval updated to %d seconds", scan_interval)
 
     # ------------------------------------------------------------------
     # Safe wrappers — each returns [] on failure so one broken endpoint
@@ -114,9 +156,9 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 # First poll — just get the last few to avoid replaying history
                 url = f"{self._keypad_bridge_url}/recent?count=0"
 
-            session = self.hass.helpers.aiohttp_client.async_get_clientsession(
-                self.hass, verify_ssl=False
-            )
+            from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+            session = async_get_clientsession(self.hass, verify_ssl=False)
 
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                 if resp.status != 200:
@@ -159,7 +201,7 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     # ------------------------------------------------------------------
 
     async def _async_update_data(self) -> Dict[str, Any]:
-        """Fetch data from ALL Crestron Home CWS REST API endpoints."""
+        """Fetch data from enabled Crestron Home CWS REST API endpoints."""
         try:
             # Load room mapping once
             if not self.rooms:
@@ -167,26 +209,49 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 self.rooms = {room["id"]: room["name"] for room in rooms_list}
                 LOGGER.debug("Loaded room definitions: %s", self.rooms)
 
-            LOGGER.debug("Polling Crestron Home processor state")
+            enabled = self._get_enabled_endpoints()
 
-            # Fire every endpoint in parallel
-            (
-                devices_list,
-                lights_list,
-                shades_list,
-                thermostats_list,
-                sensors_list,
-                scenes_list,
-                doorlocks_list,
-            ) = await asyncio.gather(
-                self._safe_fetch(self.api.get_devices(), "devices", critical=True),
-                self._safe_fetch(self.api.get_lights(), "lights"),
-                self._safe_fetch(self.api.get_shades(), "shades"),
-                self._safe_fetch(self.api.get_thermostats(), "thermostats"),
-                self._safe_fetch(self.api.get_sensors(), "sensors"),
-                self._safe_fetch(self.api.get_scenes(), "scenes"),
-                self._safe_fetch(self.api.get_doorlocks(), "doorlocks"),
+            LOGGER.debug(
+                "Polling Crestron Home processor (interval=%ss, endpoints=%s)",
+                self.update_interval.total_seconds(),
+                ",".join(sorted(enabled)) or "devices-only",
             )
+
+            # Always fetch /devices (the master list)
+            fetches = [
+                self._safe_fetch(self.api.get_devices(), "devices", critical=True),
+            ]
+            # Conditionally add each dedicated endpoint
+            fetch_labels = []
+            if "lights" in enabled:
+                fetches.append(self._safe_fetch(self.api.get_lights(), "lights"))
+                fetch_labels.append("lights")
+            if "shades" in enabled:
+                fetches.append(self._safe_fetch(self.api.get_shades(), "shades"))
+                fetch_labels.append("shades")
+            if "thermostats" in enabled:
+                fetches.append(
+                    self._safe_fetch(self.api.get_thermostats(), "thermostats")
+                )
+                fetch_labels.append("thermostats")
+            if "sensors" in enabled:
+                fetches.append(self._safe_fetch(self.api.get_sensors(), "sensors"))
+                fetch_labels.append("sensors")
+            if "scenes" in enabled:
+                fetches.append(self._safe_fetch(self.api.get_scenes(), "scenes"))
+                fetch_labels.append("scenes")
+            if "doorlocks" in enabled:
+                fetches.append(
+                    self._safe_fetch(self.api.get_doorlocks(), "doorlocks")
+                )
+                fetch_labels.append("doorlocks")
+
+            # Fire all enabled endpoints in parallel
+            results = await asyncio.gather(*fetches)
+
+            # First result is always /devices
+            devices_list = results[0]
+            result_idx = 1
 
             # Build the master devices dict from the generic endpoint first
             devices_dict: Dict[int, Dict[str, Any]] = {
@@ -194,20 +259,42 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             }
 
             # Layer dedicated endpoint data on top
-            self._merge_dedicated_list(devices_dict, lights_list, "light")
-            self._merge_dedicated_list(devices_dict, shades_list, "shade")
-            self._merge_dedicated_list(devices_dict, thermostats_list, "thermostat")
-            self._merge_dedicated_list(devices_dict, sensors_list, "sensor")
+            lights_list: List[Dict[str, Any]] = []
+            shades_list: List[Dict[str, Any]] = []
+            thermostats_list: List[Dict[str, Any]] = []
+            sensors_list: List[Dict[str, Any]] = []
+            scenes_dict: Dict[int, Dict[str, Any]] = {}
+            doorlocks_dict: Dict[int, Dict[str, Any]] = {}
 
-            # Scenes and door-locks stay in their own top-level dicts
-            scenes_dict = {s["id"]: s for s in scenes_list if "id" in s}
-            doorlocks_dict = {lk["id"]: lk for lk in doorlocks_list if "id" in lk}
+            for label in fetch_labels:
+                data = results[result_idx]
+                result_idx += 1
+
+                if label == "lights":
+                    lights_list = data
+                    self._merge_dedicated_list(devices_dict, data, "light")
+                elif label == "shades":
+                    shades_list = data
+                    self._merge_dedicated_list(devices_dict, data, "shade")
+                elif label == "thermostats":
+                    thermostats_list = data
+                    self._merge_dedicated_list(devices_dict, data, "thermostat")
+                elif label == "sensors":
+                    sensors_list = data
+                    self._merge_dedicated_list(devices_dict, data, "sensor")
+                elif label == "scenes":
+                    scenes_dict = {s["id"]: s for s in data if "id" in s}
+                elif label == "doorlocks":
+                    doorlocks_dict = {lk["id"]: lk for lk in data if "id" in lk}
 
             # Poll keypad bridge (fires events as side-effect)
             keypad_events = await self._poll_keypad_bridge()
 
+            endpoint_count = 1 + len(fetch_labels)  # 1 for /devices
             LOGGER.debug(
-                "Poll complete — %d devices, %d scenes, %d locks, %d keypad events",
+                "Poll complete — %d endpoints, %d devices, %d scenes, "
+                "%d locks, %d keypad events",
+                endpoint_count,
                 len(devices_dict),
                 len(scenes_dict),
                 len(doorlocks_dict),
