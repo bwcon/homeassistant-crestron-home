@@ -173,6 +173,9 @@ This runs a suite of tests ensuring that the async client wrapper authenticates,
 
 ## Changelog
 
+### v1.3.1
+- Fixed brand images: icon/logo are now true PNGs at 256 px with @2x variants (previous icons were JPEGs renamed to .png, which Home Assistant rejected and showed a placeholder for)
+
 ### v1.3.0
 - Configurable poll interval (10–300 seconds) via Options Flow — default relaxed to 30s
 - Per-endpoint polling toggles: enable/disable lights, shades, thermostats, sensors, scenes, and locks individually
