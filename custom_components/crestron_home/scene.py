@@ -8,6 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .areas import assign_entity_area
 from .const import DOMAIN, LOGGER
 from .coordinator import CrestronHomeDataUpdateCoordinator
 
@@ -62,6 +63,19 @@ class CrestronHomeScene(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Sc
         success = await self.coordinator.api.recall_scene(self._scene_id)
         if not success:
             LOGGER.error("Failed to recall scene %s", self.name)
-        
-        # Scenes are fire-and-forget, but we trigger a coordinator update to fetch modified states
+
         await self.coordinator.async_request_refresh()
+
+    async def async_added_to_hass(self):
+        """Assign the entity to its Crestron room."""
+        await super().async_added_to_hass()
+
+        scene_data = self.coordinator.data["scenes"].get(self._scene_id, {})
+        room_id = scene_data.get("roomId")
+        room_name = self.coordinator.rooms.get(room_id)
+
+        await assign_entity_area(
+            self.hass,
+            self.entity_id,
+            room_name,
+        )

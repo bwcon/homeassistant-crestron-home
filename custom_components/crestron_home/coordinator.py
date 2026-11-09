@@ -132,7 +132,7 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             else:
                 devices[item_id] = dict(item)
             # Guarantee the type tag is set
-            devices[item_id].setdefault("type", device_type)
+            devices[item_id]["type"] = device_type
 
     # ------------------------------------------------------------------
     # Keypad bridge polling
