@@ -63,8 +63,9 @@ class CrestronHomeScene(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Sc
         success = await self.coordinator.api.recall_scene(self._scene_id)
         if not success:
             LOGGER.error("Failed to recall scene %s", self.name)
+        else:
+            await self.coordinator.async_refresh_scene_devices()
 
-        await self.coordinator.async_request_refresh()
 
     async def async_added_to_hass(self):
         """Assign the entity to its Crestron room."""
