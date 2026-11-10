@@ -60,7 +60,7 @@ class CrestronHomeLight(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Li
         # lowercase, or missing entirely.  If the device reports a "level"
         # key it is implicitly dimmable (common on /lights endpoint).
         sub = (device_data.get("subType") or "").lower()
-        self._is_dimmer = sub == "dimmer" or "level" in device_data
+        self._is_dimmer = sub in ("dimmer", "dimmable")
 
         if self._is_dimmer:
             self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
