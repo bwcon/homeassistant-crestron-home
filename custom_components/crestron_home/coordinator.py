@@ -85,7 +85,28 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     # Safe wrappers — each returns [] on failure so one broken endpoint
     # never takes down the entire poll cycle.
     # ------------------------------------------------------------------
-
+    async def async_refresh_scene_devices(self) -> None:
+        """Refresh lights and shades after scene activation."""
+        LOGGER.debug("Refreshing lights and shades after scene activation")
+        
+        await asyncio.sleep(0.2)
+    
+        lights = await self._safe_fetch(
+            self.api.get_lights(), "lights"
+        )
+        shades = await self._safe_fetch(
+            self.api.get_shades(), "shades"
+        )
+    
+        devices = dict(self.data.get("devices", {}))
+    
+        self._merge_dedicated_list(devices, lights, "light")
+        self._merge_dedicated_list(devices, shades, "shade")
+    
+        self.async_set_updated_data({
+            **self.data,
+            "devices": devices,
+        })
     async def _safe_fetch(
         self, coro, label: str, critical: bool = False
     ) -> List[Dict[str, Any]]:
@@ -245,7 +266,7 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     self._safe_fetch(self.api.get_doorlocks(), "doorlocks")
                 )
                 fetch_labels.append("doorlocks")
-
+                
             # Fire all enabled endpoints in parallel
             results = await asyncio.gather(*fetches)
 
@@ -286,7 +307,16 @@ class CrestronHomeDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     scenes_dict = {s["id"]: s for s in data if "id" in s}
                 elif label == "doorlocks":
                     doorlocks_dict = {lk["id"]: lk for lk in data if "id" in lk}
-
+            # TEMPORARY SHADE DIAGNOSTICS
+            for device_id, device in devices_dict.items():
+                if device.get("subType") == "Shade" or device.get("type") == "shade":
+                    LOGGER.warning(
+                        "SHADE CHECK: ID=%s NAME=%s TYPE=%s SUBTYPE=%s",
+                        device_id,
+                        device.get("name"),
+                        device.get("type"),
+                        device.get("subType"),
+                    )
             # Poll keypad bridge (fires events as side-effect)
             keypad_events = await self._poll_keypad_bridge()
 

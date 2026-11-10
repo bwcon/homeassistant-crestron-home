@@ -12,6 +12,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .areas import assign_entity_area
 from .const import DOMAIN, LOGGER
 from .coordinator import CrestronHomeDataUpdateCoordinator
 
@@ -59,7 +60,7 @@ class CrestronHomeLight(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Li
         # lowercase, or missing entirely.  If the device reports a "level"
         # key it is implicitly dimmable (common on /lights endpoint).
         sub = (device_data.get("subType") or "").lower()
-        self._is_dimmer = sub == "dimmer" or "level" in device_data
+        self._is_dimmer = sub in ("dimmer", "dimmable")
 
         if self._is_dimmer:
             self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
@@ -142,3 +143,16 @@ class CrestronHomeLight(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Li
             await self.coordinator.async_request_refresh()
         else:
             await self.coordinator.async_request_refresh()
+    async def async_added_to_hass(self):
+        """Assign the entity to its Crestron room."""
+        await super().async_added_to_hass()
+
+        device_data = self.coordinator.data["devices"][self._device_id]
+        room_id = device_data.get("roomId")
+        room_name = self.coordinator.rooms.get(room_id)
+
+        await assign_entity_area(
+            self.hass,
+            self.entity_id,
+            room_name,
+        )

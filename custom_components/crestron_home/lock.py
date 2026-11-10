@@ -8,6 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .areas import assign_entity_area
 from .const import DOMAIN, LOGGER
 from .coordinator import CrestronHomeDataUpdateCoordinator
 
@@ -117,3 +118,16 @@ class CrestronHomeLock(CoordinatorEntity[CrestronHomeDataUpdateCoordinator], Loc
         if not success:
             LOGGER.error("Failed to unlock door %s", self.name)
         await self.coordinator.async_request_refresh()
+    async def async_added_to_hass(self):
+        """Assign the entity to its Crestron room."""
+        await super().async_added_to_hass()
+
+        device_data = self.coordinator.data["devices"][self._device_id]
+        room_id = device_data.get("roomId")
+        room_name = self.coordinator.rooms.get(room_id)
+
+        await assign_entity_area(
+            self.hass,
+            self.entity_id,
+            room_name,
+        )
